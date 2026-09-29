@@ -1,7 +1,7 @@
-export interface RegisterInput {
+export interface RegisterUserDto {
+  name: string;
   email: string;
   password: string;
-  name?: string;
 }
 
 export interface LoginInput {

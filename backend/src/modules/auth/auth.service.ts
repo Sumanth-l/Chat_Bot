@@ -1,15 +1,37 @@
-import type { AuthResult, LoginInput, RegisterInput } from './auth.types';
+import bcrypt from "bcryptjs";
+import prisma from "../../config/prisma";
+import { RegisterUserDto } from "./auth.types";
 
-export async function register(input: RegisterInput): Promise<AuthResult> {
-  // TODO: Add Prisma user lookup/create queries here; hash passwords before persistence.
-  // TODO: Issue a signed JWT using the application's configured secret and expiry.
-  void input;
-  throw new Error('Auth registration is not implemented yet.');
+export class AuthService {
+  async register(data: RegisterUserDto) {
+    const { name, email, password } = data;
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      throw new Error("User already exists");
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        passwordHash,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+      },
+    });
+
+    return user;
+  }
 }
 
-export async function login(input: LoginInput): Promise<AuthResult> {
-  // TODO: Load the user with Prisma and verify the password hash.
-  // TODO: Issue a signed JWT using the application's configured secret and expiry.
-  void input;
-  throw new Error('Auth login is not implemented yet.');
-}
+export const authService = new AuthService();
