@@ -1,0 +1,15 @@
+import type { NextFunction, Request, Response } from 'express';
+import * as userService from './user.service';
+
+export async function getById(req: Request<{ userId: string }>, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const user = await userService.getById(req.params.userId);
+    if (!user) {
+      res.status(404).json({ error: 'User not found.' });
+      return;
+    }
+    res.status(200).json({ data: user });
+  } catch (error) {
+    next(error);
+  }
+}
