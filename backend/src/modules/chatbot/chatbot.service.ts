@@ -1,7 +1,8 @@
-import type { Content } from "@google/generative-ai";
 import { MessageRole } from "../../../generated/client-v3";
 import prisma from "../../config/prisma";
-import { GeminiServiceError, geminiService } from "./gemini.service";
+import { AIProviderError, type AIMessage, type AIProvider } from "./providers/ai-provider";
+import { geminiProvider } from "./providers/gemini.provider";
+import { groqProvider } from "./providers/groq.provider";
 import type { ChatbotReply, ChatbotRequest } from "./chatbot.types";
 
 const MAX_MESSAGE_LENGTH = 10_000;
@@ -17,8 +18,8 @@ export class ChatbotError extends Error {
   }
 }
 
-function toGeminiHistory(messages: Array<{ role: string; content: string }>): Content[] {
-  const turns: Content[] = [];
+function toProviderHistory(messages: Array<{ role: string; content: string }>): AIMessage[] {
+  const turns: AIMessage[] = [];
   let pendingUserMessage: string | undefined;
 
   for (const message of messages) {
@@ -29,13 +30,55 @@ function toGeminiHistory(messages: Array<{ role: string; content: string }>): Co
     }
 
     if (message.role === MessageRole.ASSISTANT && pendingUserMessage !== undefined) {
-      turns.push({ role: "user", parts: [{ text: pendingUserMessage }] });
-      turns.push({ role: "model", parts: [{ text: message.content }] });
+      turns.push({ role: "user", content: pendingUserMessage });
+      turns.push({ role: "assistant", content: message.content });
       pendingUserMessage = undefined;
     }
   }
 
   return turns;
+}
+
+function getProviders(): { primary: AIProvider; fallback: AIProvider } {
+  const providers = { gemini: geminiProvider, groq: groqProvider };
+  const selected = process.env.AI_PROVIDER?.trim().toLowerCase();
+  const primary = selected === "groq" ? providers.groq : providers.gemini;
+  const fallback = primary.name === "gemini" ? providers.groq : providers.gemini;
+  return { primary, fallback };
+}
+
+async function generateWithFallback(
+  primary: AIProvider,
+  fallback: AIProvider,
+  prompt: string,
+  history: AIMessage[]
+): Promise<string> {
+  try {
+    primary.assertConfigured();
+    return await primary.generateResponse(prompt, history);
+  } catch (primaryError) {
+    const primaryStatus = primaryError instanceof AIProviderError ? primaryError.statusCode : 502;
+    console.warn("Primary AI provider failed; trying fallback", {
+      primary: primary.name,
+      fallback: fallback.name,
+      status: primaryStatus,
+    });
+
+    try {
+      fallback.assertConfigured();
+      return await fallback.generateResponse(prompt, history);
+    } catch (fallbackError) {
+      const fallbackStatus = fallbackError instanceof AIProviderError ? fallbackError.statusCode : 502;
+      console.error("Primary and fallback AI providers failed", {
+        primary: primary.name,
+        primaryStatus,
+        fallback: fallback.name,
+        fallbackStatus,
+      });
+      const statusCode = primaryStatus === 503 && fallbackStatus === 503 ? 503 : 502;
+      throw new ChatbotError("AI providers could not complete the request.", statusCode);
+    }
+  }
 }
 
 export async function reply(input: ChatbotRequest): Promise<ChatbotReply> {
@@ -50,15 +93,7 @@ export async function reply(input: ChatbotRequest): Promise<ChatbotReply> {
     throw new ChatbotError(`message must be ${MAX_MESSAGE_LENGTH} characters or fewer.`, 400);
   }
 
-  try {
-    geminiService.assertConfigured();
-  } catch (error) {
-    if (error instanceof GeminiServiceError) {
-      throw new ChatbotError(error.message, error.statusCode);
-    }
-    throw error;
-  }
-
+  const { primary, fallback } = getProviders();
   const priorMessages = await prisma.$transaction(async (transaction) => {
     const conversation = await transaction.conversation.findFirst({
       where: { id: conversationId, userId },
@@ -84,18 +119,12 @@ export async function reply(input: ChatbotRequest): Promise<ChatbotReply> {
     return priorMessages.reverse();
   });
 
-  let aiResponse: string;
-  try {
-    aiResponse = await geminiService.generateResponse(
-      toGeminiHistory(priorMessages),
-      userMessage
-    );
-  } catch (error) {
-    if (error instanceof GeminiServiceError) {
-      throw new ChatbotError("The AI provider could not complete the request.", error.statusCode);
-    }
-    throw error;
-  }
+  const aiResponse = await generateWithFallback(
+    primary,
+    fallback,
+    userMessage,
+    toProviderHistory(priorMessages)
+  );
 
   const assistantMessage = await prisma.message.create({
     data: {

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { authService } from "./auth.service";
-import { validateLoginInput } from "./auth.validation";
+import { validateLoginInput, validateRegisterInput } from "./auth.validation";
 
 export class AuthController {
   async register(
@@ -9,7 +9,12 @@ export class AuthController {
     next: NextFunction
   ) {
     try {
-      const user = await authService.register(req.body);
+      const validation = validateRegisterInput(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ success: false, message: validation.message });
+      }
+
+      const user = await authService.register(validation.data);
 
       return res.status(201).json({
         success: true,
@@ -17,11 +22,14 @@ export class AuthController {
         data: user,
       });
     } catch (error) {
+      if (error instanceof Error && error.message === "User already exists") {
+        return res.status(409).json({ success: false, message: "An account with this email already exists." });
+      }
       next(error);
     }
   }
 
-   async login(
+  async login(
     req: Request,
     res: Response,
     next: NextFunction
@@ -55,6 +63,36 @@ export class AuthController {
       if (error instanceof Error && error.message === "Invalid email or password") {
         return res.status(401).json({ success: false, message: error.message });
       }
+      next(error);
+    }
+  }
+
+  async currentUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = await authService.getUser(String(res.locals.userId));
+      if (!user) {
+        res.status(401).json({ success: false, message: "Session is no longer valid." });
+        return;
+      }
+      res.status(200).json({ success: true, data: { user } });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async logout(req: Request, res: Response, next: NextFunction) {
+    try {
+      await authService.logout(String(res.locals.userId));
+      const cookieOptions = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax" as const,
+        path: "/",
+      };
+      res.clearCookie("accessToken", cookieOptions);
+      res.clearCookie("refreshToken", cookieOptions);
+      res.status(200).json({ success: true, message: "Logged out successfully." });
+    } catch (error) {
       next(error);
     }
   }

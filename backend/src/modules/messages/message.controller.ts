@@ -9,12 +9,23 @@ export class MessageController {
   ) {
     try {
       const { conversationId, content, role } = req.body;
+      if (typeof conversationId !== "string" || !conversationId.trim()) {
+        return res.status(400).json({ success: false, message: "conversationId is required." });
+      }
+      if (typeof content !== "string" || !content.trim()) {
+        return res.status(400).json({ success: false, message: "content is required." });
+      }
+      if (role !== "USER" && role !== "ASSISTANT") {
+        return res.status(400).json({ success: false, message: "role must be USER or ASSISTANT." });
+      }
 
       const message = await messageService.createMessage(
-        conversationId,
-        content,
+        String(res.locals.userId),
+        conversationId.trim(),
+        content.trim(),
         role
       );
+      if (!message) return res.status(404).json({ success: false, message: "Conversation not found." });
 
       return res.status(201).json({
         success: true,
@@ -35,8 +46,10 @@ export class MessageController {
       const { conversationId } = req.params;
 
       const messages = await messageService.getMessages(
-        conversationId
+        conversationId,
+        String(res.locals.userId)
       );
+      if (!messages) return res.status(404).json({ success: false, message: "Conversation not found." });
 
       return res.status(200).json({
         success: true,
@@ -55,7 +68,8 @@ export class MessageController {
     try {
       const { id } = req.params;
 
-      const message = await messageService.getMessageById(id);
+      const message = await messageService.getMessageById(id, String(res.locals.userId));
+      if (!message) return res.status(404).json({ success: false, message: "Message not found." });
 
       return res.status(200).json({
         success: true,
@@ -74,7 +88,8 @@ export class MessageController {
     try {
       const { id } = req.params;
 
-      const result = await messageService.deleteMessage(id);
+      const result = await messageService.deleteMessage(id, String(res.locals.userId));
+      if (!result) return res.status(404).json({ success: false, message: "Message not found." });
 
       return res.status(200).json({
         success: true,

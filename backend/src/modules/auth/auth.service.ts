@@ -4,6 +4,20 @@ import { RegisterUserDto } from "./auth.types";
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 
 export class AuthService {
+  async getUser(userId: string) {
+    return prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true, createdAt: true },
+    });
+  }
+
+  async logout(userId: string) {
+    await prisma.user.updateMany({
+      where: { id: userId },
+      data: { refreshToken: null },
+    });
+  }
+
   async register(data: RegisterUserDto) {
     const { name, email, password } = data;
 

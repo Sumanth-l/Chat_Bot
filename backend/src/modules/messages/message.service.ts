@@ -2,10 +2,17 @@ import prisma from "../../config/prisma";
 
 export class MessageService {
   async createMessage(
+    userId: string,
     conversationId: string,
     content: string,
     role: "USER" | "ASSISTANT"
   ) {
+    const conversation = await prisma.conversation.findFirst({
+      where: { id: conversationId, userId },
+      select: { id: true },
+    });
+    if (!conversation) return null;
+
     const message = await prisma.message.create({
       data: {
         conversationId,
@@ -17,11 +24,15 @@ export class MessageService {
     return message;
   }
 
-  async getMessages(conversationId: string) {
+  async getMessages(conversationId: string, userId: string) {
+    const conversation = await prisma.conversation.findFirst({
+      where: { id: conversationId, userId },
+      select: { id: true },
+    });
+    if (!conversation) return null;
+
     const messages = await prisma.message.findMany({
-      where: {
-        conversationId,
-      },
+      where: { conversationId },
       orderBy: {
         createdAt: "asc",
       },
@@ -30,26 +41,22 @@ export class MessageService {
     return messages;
   }
 
-  async getMessageById(messageId: string) {
-    const message = await prisma.message.findUnique({
-      where: {
-        id: messageId,
-      },
+  async getMessageById(messageId: string, userId: string) {
+    const message = await prisma.message.findFirst({
+      where: { id: messageId, conversation: { is: { userId } } },
     });
 
     return message;
   }
 
-  async deleteMessage(messageId: string) {
-    await prisma.message.delete({
-      where: {
-        id: messageId,
-      },
+  async deleteMessage(messageId: string, userId: string) {
+    const result = await prisma.message.deleteMany({
+      where: { id: messageId, conversation: { is: { userId } } },
     });
 
-    return {
+    return result.count > 0 ? {
       message: "Message deleted successfully",
-    };
+    } : null;
   }
 }
 

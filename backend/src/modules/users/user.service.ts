@@ -1,7 +1,9 @@
 import type { UserSummary } from './user.types';
+import prisma from '../../config/prisma';
 
 export async function getById(userId: string): Promise<UserSummary | null> {
-  // TODO: Query Prisma for the user; select only fields safe to expose.
-  void userId;
-  throw new Error('User lookup is not implemented yet.');
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, name: true, createdAt: true },
+  });
 }

@@ -4,6 +4,8 @@ export interface RegisterUserDto {
   password: string;
 }
 
+export type RegisterInput = RegisterUserDto;
+
 export interface LoginInput {
   email: string;
   password: string;

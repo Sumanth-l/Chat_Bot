@@ -9,7 +9,7 @@ export async function getById(req: Request<{ userId: string }>, res: Response, n
     }
     const user = await userService.getById(req.params.userId);
     if (!user) {
-      res.status(404).json({ error: 'User not found.' });
+      res.status(404).json({ success: false, message: 'User not found.' });
       return;
     }
     res.status(200).json({ data: user });

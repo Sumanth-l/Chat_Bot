@@ -10,19 +10,18 @@ export function validateRegisterInput(value: unknown): ValidationResult<Register
   }
 
   const body = value as Record<string, unknown>;
+  if (typeof body.name !== 'string' || !body.name.trim()) {
+    return { success: false, message: 'Name is required.' };
+  }
   if (typeof body.email !== 'string' || !body.email.includes('@')) {
     return { success: false, message: 'A valid email is required.' };
   }
   if (typeof body.password !== 'string' || body.password.length < 8) {
     return { success: false, message: 'Password must be at least 8 characters.' };
   }
-  if (body.name !== undefined && typeof body.name !== 'string') {
-    return { success: false, message: 'Name must be a string.' };
-  }
-
   return {
     success: true,
-    data: { email: body.email, password: body.password, name: body.name as string | undefined },
+    data: { name: body.name.trim(), email: body.email.trim().toLowerCase(), password: body.password },
   };
 }
 
@@ -39,5 +38,5 @@ export function validateLoginInput(value: unknown): ValidationResult<LoginInput>
     return { success: false, message: 'Password is required.' };
   }
 
-  return { success: true, data: { email: body.email, password: body.password } };
+  return { success: true, data: { email: body.email.trim().toLowerCase(), password: body.password } };
 }
