@@ -30,11 +30,16 @@ class ConversationService {
     id: string,
     userId: string
   ) {
-    return prisma.conversation.delete({
-      where: {
-        id,
-        userId,
-      },
+    return prisma.$transaction(async (transaction) => {
+      const conversation = await transaction.conversation.findFirst({
+        where: { id, userId },
+        select: { id: true },
+      });
+      if (!conversation) return false;
+
+      await transaction.message.deleteMany({ where: { conversationId: id } });
+      await transaction.conversation.delete({ where: { id } });
+      return true;
     });
   }
 }

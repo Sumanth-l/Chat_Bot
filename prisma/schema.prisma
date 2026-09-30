@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../backend/generated/client-v3"
 }
 
 datasource db {
@@ -30,10 +31,17 @@ model Conversation {
 }
 
 model Message {
-  id             String       @id @default(uuid())
+  id             String @id @default(uuid())
+
   conversationId String
-  senderType     String
-  content        String
-  createdAt      DateTime     @default(now())
-  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  role      MessageRole
+  content   String
+  createdAt DateTime @default(now())
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
 }

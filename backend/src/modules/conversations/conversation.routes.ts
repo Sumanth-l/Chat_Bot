@@ -1,9 +1,12 @@
-import { Router } from 'express';
-import * as conversationController from './conversation.controller';
+import { Router } from "express";
+import { conversationController } from "./conversation.controller";
+import { protect } from "../../middleware/auth.middleware";
 
 const router = Router();
-router.get('/', conversationController.list);
-router.post('/', conversationController.create);
-router.delete('/:conversationId', conversationController.remove);
+router.use(protect);
+
+router.post("/", conversationController.create.bind(conversationController));
+router.get("/", conversationController.getAll.bind(conversationController));
+router.delete("/:conversationId", conversationController.remove.bind(conversationController));
 
 export default router;

@@ -1,14 +1,56 @@
-import type { CreateMessageInput, MessageRecord } from './message.types';
+import prisma from "../../config/prisma";
 
-export async function listForConversation(conversationId: string, userId: string): Promise<MessageRecord[]> {
-  // TODO: Query Prisma for messages after checking conversation ownership; paginate history.
-  void conversationId;
-  void userId;
-  throw new Error('Message history is not implemented yet.');
+export class MessageService {
+  async createMessage(
+    conversationId: string,
+    content: string,
+    role: "USER" | "ASSISTANT"
+  ) {
+    const message = await prisma.message.create({
+      data: {
+        conversationId,
+        content,
+        role,
+      },
+    });
+
+    return message;
+  }
+
+  async getMessages(conversationId: string) {
+    const messages = await prisma.message.findMany({
+      where: {
+        conversationId,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    return messages;
+  }
+
+  async getMessageById(messageId: string) {
+    const message = await prisma.message.findUnique({
+      where: {
+        id: messageId,
+      },
+    });
+
+    return message;
+  }
+
+  async deleteMessage(messageId: string) {
+    await prisma.message.delete({
+      where: {
+        id: messageId,
+      },
+    });
+
+    return {
+      message: "Message deleted successfully",
+    };
+  }
 }
 
-export async function create(input: CreateMessageInput): Promise<MessageRecord> {
-  // TODO: Persist the user message with Prisma after checking conversation ownership.
-  void input;
-  throw new Error('Message creation is not implemented yet.');
-}
+export const messageService = new MessageService();

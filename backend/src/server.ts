@@ -5,7 +5,6 @@ import { userRouter } from "./modules/users";
 import { conversationRouter } from "./modules/conversations";
 import { messageRouter } from "./modules/messages";
 import { chatbotRouter } from "./modules/chatbot";
-import { requireAuth } from "./middleware/require-auth";
 
 dotenv.config();
 
@@ -26,10 +25,10 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use("/api/auth", authRouter);
-app.use("/api/users", requireAuth, userRouter);
-app.use("/api/conversations", requireAuth, conversationRouter);
-app.use("/api/messages", requireAuth, messageRouter);
-app.use("/api/chatbot", requireAuth, chatbotRouter);
+app.use("/api/users", userRouter);
+app.use("/api/conversations", conversationRouter);
+app.use("/api/messages", messageRouter);
+app.use("/api/chatbot", chatbotRouter);
 
 app.get("/", (req, res) => {
   res.json({
@@ -41,7 +40,7 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
 
 app.use((error: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {

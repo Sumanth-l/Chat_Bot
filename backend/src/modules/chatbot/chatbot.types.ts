@@ -6,5 +6,6 @@ export interface ChatbotRequest {
 
 export interface ChatbotReply {
   conversationId: string;
-  message: string;
+  userMessage: string;
+  aiResponse: string;
 }

@@ -1,14 +1,12 @@
-import { NextFunction, Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { verifyAccessToken } from "../utils/jwt";
 
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const cookieHeader = req.headers.cookie ?? "";
-  const accessCookie = cookieHeader
-    .split(";")
+export function protect(req: Request, res: Response, next: NextFunction) {
+  const cookie = req.headers.cookie
+    ?.split(";")
     .map((part) => part.trim())
     .find((part) => part.startsWith("accessToken="));
-  const cookieToken = accessCookie?.slice("accessToken=".length);
-  const token = cookieToken;
+  const token = cookie?.slice("accessToken=".length);
 
   if (!token) {
     return res.status(401).json({ success: false, message: "Authentication required." });
