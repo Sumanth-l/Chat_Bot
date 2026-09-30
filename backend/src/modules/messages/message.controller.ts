@@ -3,8 +3,7 @@ import * as messageService from './message.service';
 
 export async function list(req: Request<{ conversationId: string }>, res: Response, next: NextFunction): Promise<void> {
   try {
-    // TODO: Read user ID from authenticated request context.
-    const userId = String(req.query.userId ?? '');
+    const userId = String(res.locals.userId);
     const messages = await messageService.listForConversation(req.params.conversationId, userId);
     res.status(200).json({ data: messages });
   } catch (error) {
@@ -14,8 +13,7 @@ export async function list(req: Request<{ conversationId: string }>, res: Respon
 
 export async function create(req: Request<{ conversationId: string }>, res: Response, next: NextFunction): Promise<void> {
   try {
-    // TODO: Read user ID from authenticated request context and validate content.
-    const userId = String(req.body.userId ?? '');
+    const userId = String(res.locals.userId);
     const message = await messageService.create({
       conversationId: req.params.conversationId,
       userId,

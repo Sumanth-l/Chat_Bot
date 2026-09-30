@@ -8,39 +8,32 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  createdAt     DateTime       @default(now())
+  passwordHash  String
+  updatedAt     DateTime       @updatedAt
+  refreshToken  String?
   conversations Conversation[]
 }
 
 model Conversation {
-  id        String @id @default(uuid())
+  id        String    @id @default(uuid())
   title     String
-  status    String @default("ACTIVE")
-
+  status    String    @default("ACTIVE")
   userId    String
-  user      User @relation(fields: [userId], references: [id])
-
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id])
   messages  Message[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model Message {
-  id             String @id @default(uuid())
-
+  id             String       @id @default(uuid())
   conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id])
-
   senderType     String
-  content        String @db.Text
-
-  createdAt DateTime @default(now())
+  content        String
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
 }

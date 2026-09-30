@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import prisma from "../../config/prisma";
 import { RegisterUserDto } from "./auth.types";
+import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 
 export class AuthService {
   async register(data: RegisterUserDto) {
@@ -31,6 +32,45 @@ export class AuthService {
     });
 
     return user;
+  }
+
+  async login(email: string, password: string) {
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new Error("Invalid email or password");
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      password,
+      user.passwordHash
+    );
+
+    if (!isPasswordValid) {
+      throw new Error("Invalid email or password");
+    }
+
+    const accessToken = generateAccessToken(user.id);
+    const refreshToken = generateRefreshToken(user.id);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        refreshToken,
+      },
+    });
+
+    return {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      },
+      accessToken,
+      refreshToken,
+    };
   }
 }
 

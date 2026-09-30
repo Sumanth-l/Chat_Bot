@@ -9,3 +9,7 @@ export interface CreateConversationInput {
   userId: string;
   title?: string;
 }
+
+export interface CreateConversationDto {
+  title: string;
+}
