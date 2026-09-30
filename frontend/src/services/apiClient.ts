@@ -1,4 +1,5 @@
 const API_BASE_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:5000').replace(/\/$/, '');
+let refreshInFlight: Promise<boolean> | null = null;
 
 export interface ApiEnvelope<T> {
   success?: boolean;
@@ -13,7 +14,23 @@ export class SessionExpiredError extends Error {
   }
 }
 
-export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+async function refreshAccessToken(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    }).then(async (response) => {
+      if (!response.ok) return false;
+      const payload = (await response.json().catch(() => null)) as ApiEnvelope<unknown> | null;
+      return payload?.success === true;
+    }).catch(() => false).finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+export async function apiRequest<T>(path: string, init?: RequestInit, retryAfterRefresh = true): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
@@ -29,7 +46,13 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
 
   const payload = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
   if (!response.ok || payload?.success === false) {
-    if (response.status === 401) throw new SessionExpiredError();
+    if (response.status === 401) {
+      const isCredentialRequest = path === '/api/auth/login' || path === '/api/auth/register' || path === '/api/auth/refresh';
+      if (retryAfterRefresh && !isCredentialRequest && await refreshAccessToken()) {
+        return apiRequest<T>(path, init, false);
+      }
+      throw new SessionExpiredError();
+    }
     throw new Error(payload?.message || `The request failed (${response.status}). Please try again.`);
   }
 

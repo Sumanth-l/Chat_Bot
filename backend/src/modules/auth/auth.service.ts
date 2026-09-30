@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import prisma from "../../config/prisma";
 import { RegisterUserDto } from "./auth.types";
-import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "../../utils/jwt";
 
 export class AuthService {
   async getUser(userId: string) {
@@ -16,6 +16,23 @@ export class AuthService {
       where: { id: userId },
       data: { refreshToken: null },
     });
+  }
+
+  async refresh(refreshToken: string) {
+    let userId: string;
+    try {
+      userId = verifyRefreshToken(refreshToken);
+    } catch {
+      return null;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, refreshToken: true },
+    });
+    if (!user || user.refreshToken !== refreshToken) return null;
+
+    return { accessToken: generateAccessToken(user.id) };
   }
 
   async register(data: RegisterUserDto) {

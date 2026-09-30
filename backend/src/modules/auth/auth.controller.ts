@@ -2,6 +2,26 @@ import { Request, Response, NextFunction } from "express";
 import { authService } from "./auth.service";
 import { validateLoginInput, validateRegisterInput } from "./auth.validation";
 
+function readCookie(req: Request, name: string): string | null {
+  const prefix = `${name}=`;
+  const value = req.headers.cookie?.split(";").map((part) => part.trim()).find((part) => part.startsWith(prefix))?.slice(prefix.length);
+  if (!value) return null;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
+
+function authCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+  };
+}
+
 export class AuthController {
   async register(
     req: Request,
@@ -45,12 +65,7 @@ export class AuthController {
         validation.data.password
       );
 
-      const cookieOptions = {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax" as const,
-        path: "/",
-      };
+      const cookieOptions = authCookieOptions();
       res.cookie("accessToken", data.accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
       res.cookie("refreshToken", data.refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
@@ -80,15 +95,36 @@ export class AuthController {
     }
   }
 
+  async refresh(req: Request, res: Response, next: NextFunction) {
+    try {
+      const refreshToken = readCookie(req, "refreshToken");
+      if (!refreshToken) {
+        res.status(401).json({ success: false, message: "Refresh token is missing or expired." });
+        return;
+      }
+
+      const result = await authService.refresh(refreshToken);
+      if (!result) {
+        res.clearCookie("accessToken", authCookieOptions());
+        res.clearCookie("refreshToken", authCookieOptions());
+        res.status(401).json({ success: false, message: "Refresh token is invalid or expired. Please sign in again." });
+        return;
+      }
+
+      res.cookie("accessToken", result.accessToken, {
+        ...authCookieOptions(),
+        maxAge: 15 * 60 * 1000,
+      });
+      res.status(200).json({ success: true, message: "Access token refreshed." });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async logout(req: Request, res: Response, next: NextFunction) {
     try {
       await authService.logout(String(res.locals.userId));
-      const cookieOptions = {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax" as const,
-        path: "/",
-      };
+      const cookieOptions = authCookieOptions();
       res.clearCookie("accessToken", cookieOptions);
       res.clearCookie("refreshToken", cookieOptions);
       res.status(200).json({ success: true, message: "Logged out successfully." });

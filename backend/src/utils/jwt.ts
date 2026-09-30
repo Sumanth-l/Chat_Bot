@@ -23,24 +23,36 @@ export const generateRefreshToken = (userId: string) => {
   return sign(userId, secret("JWT_REFRESH_SECRET"), 7 * 24 * 60 * 60);
 };
 
-export const verifyAccessToken = (token: string) => {
+function verifyToken(token: string, key: string, label: string) {
   const parts = token.split(".");
-  if (parts.length !== 3) throw new Error("Invalid access token");
+  if (parts.length !== 3) throw new Error(`Invalid ${label} token`);
   const [headerPart, payloadPart, signaturePart] = parts;
-  const header = JSON.parse(Buffer.from(headerPart, "base64url").toString("utf8"));
-  if (header.alg !== "HS256" || header.typ !== "JWT") throw new Error("Invalid access token");
+  let header: { alg?: string; typ?: string };
+  let payload: { userId?: unknown; exp?: unknown };
+  try {
+    header = JSON.parse(Buffer.from(headerPart, "base64url").toString("utf8"));
+    payload = JSON.parse(Buffer.from(payloadPart, "base64url").toString("utf8"));
+  } catch {
+    throw new Error(`Invalid ${label} token`);
+  }
+  if (header.alg !== "HS256" || header.typ !== "JWT") throw new Error(`Invalid ${label} token`);
 
-  const expected = createHmac("sha256", secret("JWT_ACCESS_SECRET"))
+  const expected = createHmac("sha256", key)
     .update(`${headerPart}.${payloadPart}`)
     .digest();
   const actual = Buffer.from(signaturePart, "base64url");
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
-    throw new Error("Invalid access token");
+    throw new Error(`Invalid ${label} token`);
   }
 
-  const payload = JSON.parse(Buffer.from(payloadPart, "base64url").toString("utf8"));
   if (typeof payload.userId !== "string" || typeof payload.exp !== "number" || payload.exp <= Math.floor(Date.now() / 1000)) {
-    throw new Error("Invalid or expired access token");
+    throw new Error(`Invalid or expired ${label} token`);
   }
-  return payload.userId as string;
-};
+  return payload.userId;
+}
+
+export const verifyAccessToken = (token: string) =>
+  verifyToken(token, secret("JWT_ACCESS_SECRET"), "access");
+
+export const verifyRefreshToken = (token: string) =>
+  verifyToken(token, secret("JWT_REFRESH_SECRET"), "refresh");

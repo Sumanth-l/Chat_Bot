@@ -1,4 +1,5 @@
 import type { Message } from '../../types/chat';
+import FormattedMessage from './FormattedMessage';
 
 interface MessageBubbleProps {
   message: Message;
@@ -16,8 +17,8 @@ export default function MessageBubble({ message, userName, onDelete, onInspect }
       </span>}
       <div className={`min-w-0 max-w-[88%] sm:max-w-[70%] ${isUser ? 'text-right' : 'text-left'}`}>
         <p className={`mb-1.5 text-[9px] font-extrabold uppercase tracking-[0.17em] ${isUser ? 'text-slate-400' : 'text-slate-500'}`}>{isUser ? 'You' : 'Dialog AI'} <span className="ml-1 font-medium tracking-normal">· {new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(message.createdAt))}</span></p>
-        <div className={`whitespace-pre-wrap break-words border-2 px-4 py-3.5 text-left text-[14px] leading-7 sm:px-5 sm:py-4 sm:text-[15px] ${isUser ? 'border-[#111827] bg-[#2563EB] font-medium text-white shadow-[3px_3px_0_#111827]' : 'border-[#111827] bg-white text-[#111827] shadow-[3px_3px_0_#111827]'}`}>
-          {message.content}
+        <div className={`break-words border-2 px-4 py-3.5 text-left text-[14px] leading-7 sm:px-5 sm:py-4 sm:text-[15px] ${isUser ? 'whitespace-pre-wrap border-[#111827] bg-[#2563EB] font-medium text-white shadow-[3px_3px_0_#111827]' : 'border-[#111827] bg-white text-[#111827] shadow-[3px_3px_0_#111827]'}`}>
+          {isUser ? message.content : <FormattedMessage content={message.content} />}
         </div>
         {!message.id.startsWith('pending-') && <div className={`mt-2 flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
           <button type="button" onClick={() => onInspect(message.id)} className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 underline decoration-transparent underline-offset-2 transition hover:text-[#2563EB] hover:decoration-[#2563EB] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB]">Details</button>
