@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { chatApi } from '../../services/chatApi';
 import { SessionExpiredError } from '../../services/apiClient';
 import { authApi } from '../../services/authApi';
-import type { ChatUser, Conversation, Message } from '../../types/chat';
+import type { ChatUser, Conversation, Feedback, FeedbackFormType, FeedbackType, Message } from '../../types/chat';
+import { feedbackApi } from '../../services/feedbackApi';
 import ChatHeader from './ChatHeader';
-import EmptyState from './EmptyState';
+import FeedbackModal from './FeedbackModal';
 import MessageInput from './MessageInput';
 import MessageList from './MessageList';
 import Sidebar from './Sidebar';
@@ -24,6 +25,9 @@ export default function ChatLayout({ user, onSessionExpired, onLogout }: ChatLay
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [feedback, setFeedback] = useState<Feedback[]>([]);
+  const [feedbackModal, setFeedbackModal] = useState<{ messageId: string; type: FeedbackFormType } | null>(null);
+  const [feedbackSubmittingMessageId, setFeedbackSubmittingMessageId] = useState<string | null>(null);
   const [messageDetails, setMessageDetails] = useState<Message | null>(null);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
@@ -52,6 +56,7 @@ export default function ChatLayout({ user, onSessionExpired, onLogout }: ChatLay
   useEffect(() => {
     if (!activeConversationId) {
       setMessages([]);
+      setFeedback([]);
       setIsLoadingMessages(false);
       return;
     }
@@ -59,6 +64,7 @@ export default function ChatLayout({ user, onSessionExpired, onLogout }: ChatLay
     const conversationId = activeConversationId;
     let current = true;
     setMessages([]);
+    setFeedback([]);
     setIsLoadingMessages(true);
     void chatApi.getMessages(conversationId).then((loadedMessages) => {
       if (current) setMessages(loadedMessages);
@@ -73,6 +79,17 @@ export default function ChatLayout({ user, onSessionExpired, onLogout }: ChatLay
       if (current) setIsLoadingMessages(false);
     });
 
+    void feedbackApi.getConversationFeedback(conversationId).then((loadedFeedback) => {
+      if (current) setFeedback(loadedFeedback);
+    }).catch((loadError: unknown) => {
+      if (!current) return;
+      if (loadError instanceof SessionExpiredError) {
+        onSessionExpired();
+        return;
+      }
+      setError(loadError instanceof Error ? loadError.message : 'Could not load feedback for this conversation.');
+    });
+
     return () => { current = false; };
   }, [activeConversationId, onSessionExpired]);
 
@@ -80,6 +97,8 @@ export default function ChatLayout({ user, onSessionExpired, onLogout }: ChatLay
     if (isSending) return;
     setActiveConversationId(null);
     setMessages([]);
+    setFeedback([]);
+    setFeedbackModal(null);
     setError('');
     setSidebarOpen(false);
   }
@@ -136,6 +155,8 @@ export default function ChatLayout({ user, onSessionExpired, onLogout }: ChatLay
       if (activeConversationId === conversationId) {
         setActiveConversationId(null);
         setMessages([]);
+        setFeedback([]);
+        setFeedbackModal(null);
       }
     } catch (deleteError) {
       if (deleteError instanceof SessionExpiredError) {
@@ -151,6 +172,7 @@ export default function ChatLayout({ user, onSessionExpired, onLogout }: ChatLay
     try {
       await chatApi.deleteMessage(messageId);
       setMessages((current) => current.filter((message) => message.id !== messageId));
+      setFeedback((current) => current.filter((item) => item.messageId !== messageId));
     } catch (deleteError) {
       if (deleteError instanceof SessionExpiredError) {
         onSessionExpired();
@@ -170,6 +192,37 @@ export default function ChatLayout({ user, onSessionExpired, onLogout }: ChatLay
       }
       setError(inspectError instanceof Error ? inspectError.message : 'Could not load message details.');
     }
+  }
+
+  async function submitFeedback(messageId: string, type: FeedbackType, details: { rating?: number; comment?: string } = {}) {
+    if (!activeConversationId || feedbackSubmittingMessageId) return;
+    setFeedbackSubmittingMessageId(messageId);
+    setError('');
+    try {
+      const savedFeedback = await feedbackApi.submit({
+        conversationId: activeConversationId,
+        messageId,
+        type,
+        ...details,
+      });
+      setFeedback((current) => [
+        ...current.filter((item) => item.messageId !== messageId || (item.type !== type && !((type === 'LIKE' || type === 'DISLIKE') && (item.type === 'LIKE' || item.type === 'DISLIKE')))),
+        savedFeedback,
+      ]);
+      setFeedbackModal(null);
+    } catch (feedbackError) {
+      if (feedbackError instanceof SessionExpiredError) {
+        onSessionExpired();
+        return;
+      }
+      setError(feedbackError instanceof Error ? feedbackError.message : 'Could not save feedback. Please try again.');
+    } finally {
+      setFeedbackSubmittingMessageId(null);
+    }
+  }
+
+  function openFeedback(messageId: string, type: FeedbackFormType) {
+    setFeedbackModal({ messageId, type });
   }
 
   async function logout() {
@@ -194,12 +247,11 @@ export default function ChatLayout({ user, onSessionExpired, onLogout }: ChatLay
     if (isSending) return;
     setError('');
     setActiveConversationId(id);
+    setFeedbackModal(null);
     setSidebarOpen(false);
   }
 
   const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId);
-  const handlePrompt = (prompt: string) => { void sendMessage(prompt); };
-
   return (
     <main className="relative flex h-[100dvh] min-h-[520px] overflow-hidden bg-[#F8FAFC] text-[#111827]">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.045)_1px,transparent_1px)] bg-[length:36px_36px]" />
@@ -220,11 +272,9 @@ export default function ChatLayout({ user, onSessionExpired, onLogout }: ChatLay
           <button type="button" aria-label="Dismiss error" onClick={() => setError('')} className="shrink-0 text-lg leading-5">×</button>
         </div>}
 
-        {activeConversationId || messages.length > 0 ? (
-          <MessageList messages={messages} userName={user.name} isLoadingMessages={isLoadingMessages} isSending={isSending} onDeleteMessage={deleteMessage} onInspectMessage={inspectMessage} />
-        ) : (
-          <EmptyState onPrompt={handlePrompt} disabled={isSending} />
-        )}
+        {(activeConversationId || messages.length > 0)
+          ? <MessageList messages={messages} feedback={feedback} userName={user.name} isLoadingMessages={isLoadingMessages} isSending={isSending} feedbackSubmittingMessageId={feedbackSubmittingMessageId} onReact={(messageId, type) => { void submitFeedback(messageId, type); }} onOpenFeedback={openFeedback} onDeleteMessage={deleteMessage} onInspectMessage={inspectMessage} />
+          : <div className="min-h-0 flex-1" aria-hidden="true" />}
         <MessageInput onSend={(content) => { void sendMessage(content); }} disabled={isSending} />
       </section>
       {messageDetails && <div className="fixed inset-0 z-50 grid place-items-center bg-[#0F172A]/70 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setMessageDetails(null); }}>
@@ -241,6 +291,7 @@ export default function ChatLayout({ user, onSessionExpired, onLogout }: ChatLay
           </dl>
         </section>
       </div>}
+      {feedbackModal && <FeedbackModal type={feedbackModal.type} isSubmitting={feedbackSubmittingMessageId === feedbackModal.messageId} initialRating={feedback.find((item) => item.messageId === feedbackModal.messageId && item.type === feedbackModal.type)?.rating ?? undefined} initialComment={feedback.find((item) => item.messageId === feedbackModal.messageId && item.type === feedbackModal.type)?.comment ?? ''} onClose={() => setFeedbackModal(null)} onSubmit={(details) => submitFeedback(feedbackModal.messageId, feedbackModal.type, details)} />}
     </main>
   );
 }

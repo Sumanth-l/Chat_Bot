@@ -1,18 +1,22 @@
 import { useEffect, useRef } from 'react';
-import type { Message } from '../../types/chat';
+import type { Feedback, FeedbackFormType, Message } from '../../types/chat';
 import MessageBubble from './MessageBubble';
 import TypingIndicator from './TypingIndicator';
 
 interface MessageListProps {
   messages: Message[];
+  feedback: Feedback[];
   userName?: string;
   isLoadingMessages: boolean;
   isSending: boolean;
+  feedbackSubmittingMessageId: string | null;
   onDeleteMessage: (id: string) => void;
   onInspectMessage: (id: string) => void;
+  onReact: (messageId: string, type: 'LIKE' | 'DISLIKE') => void;
+  onOpenFeedback: (messageId: string, type: FeedbackFormType) => void;
 }
 
-export default function MessageList({ messages, userName, isLoadingMessages, isSending, onDeleteMessage, onInspectMessage }: MessageListProps) {
+export default function MessageList({ messages, feedback, userName, isLoadingMessages, isSending, feedbackSubmittingMessageId, onDeleteMessage, onInspectMessage, onReact, onOpenFeedback }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [messages, isSending]);
 
@@ -21,7 +25,7 @@ export default function MessageList({ messages, userName, isLoadingMessages, isS
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-7" aria-label="Conversation messages" aria-live="polite">
       <div className="mx-auto max-w-[850px] divide-y divide-slate-200/70 pb-5 pt-3">
-        {messages.map((message) => <MessageBubble key={message.id} message={message} userName={userName} onDelete={onDeleteMessage} onInspect={onInspectMessage} />)}
+        {messages.map((message) => <MessageBubble key={message.id} message={message} userName={userName} feedback={feedback.filter((item) => item.messageId === message.id)} isFeedbackSubmitting={feedbackSubmittingMessageId !== null} onReact={onReact} onOpenFeedback={onOpenFeedback} onDelete={onDeleteMessage} onInspect={onInspectMessage} />)}
         {isSending && <TypingIndicator />}
         <div ref={bottomRef} />
       </div>

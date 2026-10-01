@@ -1,5 +1,7 @@
 export type MessageRole = 'USER' | 'ASSISTANT';
 export type AIProviderName = 'gemini' | 'groq';
+export type FeedbackType = 'LIKE' | 'DISLIKE' | 'BUG_REPORT' | 'FEATURE_REQUEST' | 'GENERAL';
+export type FeedbackFormType = Extract<FeedbackType, 'BUG_REPORT' | 'FEATURE_REQUEST' | 'GENERAL'>;
 
 export interface Conversation {
   id: string;
@@ -13,6 +15,17 @@ export interface Message {
   conversationId: string;
   role: MessageRole;
   content: string;
+  createdAt: string;
+}
+
+export interface Feedback {
+  id: string;
+  userId: string;
+  conversationId: string;
+  messageId: string;
+  rating: number | null;
+  type: FeedbackType;
+  comment: string | null;
   createdAt: string;
 }
 

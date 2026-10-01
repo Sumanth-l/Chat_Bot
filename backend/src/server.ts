@@ -5,6 +5,7 @@ import { userRouter } from "./modules/users";
 import { conversationRouter } from "./modules/conversations";
 import { messageRouter } from "./modules/messages";
 import { chatbotRouter } from "./modules/chatbot";
+import { feedbackRouter } from "./modules/feedback";
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use("/api/users", userRouter);
 app.use("/api/conversations", conversationRouter);
 app.use("/api/messages", messageRouter);
 app.use("/api/chatbot", chatbotRouter);
+app.use("/api/feedback", feedbackRouter);
 
 app.get("/", (req, res) => {
   res.json({

@@ -65,8 +65,8 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
           <span className="border-2 border-[#111827] bg-white px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.16em] sm:hidden">AI workspace</span>
         </header>
 
-        <div className="grid flex-1 items-center gap-12 py-12 lg:grid-cols-[minmax(0,1.12fr)_minmax(420px,0.88fr)] lg:gap-16 lg:py-16 xl:gap-24">
-          <section aria-labelledby="hero-title" className="page-enter relative mx-auto w-full max-w-[680px] lg:mx-0">
+        <div className="flex flex-1 items-center justify-center py-12 lg:py-16">
+          <section aria-labelledby="hero-title" className="hidden">
             <div className="mb-7 inline-flex items-center gap-2 border-2 border-[#111827] bg-white px-3 py-2 text-[11px] font-extrabold uppercase tracking-[0.15em] shadow-[3px_3px_0_#111827] sm:mb-9">
               <span className="h-2 w-2 bg-[#2563EB]" />
               The AI workspace for what’s next
@@ -103,7 +103,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </div>
           </section>
 
-          <section aria-labelledby="login-title" className="page-enter-delayed mx-auto w-full max-w-[500px] lg:mx-0 lg:justify-self-end">
+          <section aria-labelledby="login-title" className="page-enter-delayed mx-auto w-full max-w-[500px]">
             <div className="relative border-2 border-[#111827] bg-white p-6 shadow-[7px_7px_0_#111827] sm:p-9 md:p-10">
               <div aria-hidden="true" className="absolute -right-2 -top-2 h-5 w-5 border-2 border-[#111827] bg-[#2563EB]" />
               {signedInUser ? (
@@ -150,7 +150,6 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                       <div>
                         <div className="mb-2 flex items-center justify-between gap-3">
                           <label htmlFor="password" className="block text-xs font-extrabold uppercase tracking-[0.12em]">Password</label>
-                          <a href="/forgot-password" className="group/link inline-flex items-center gap-1 text-xs font-bold text-[#2563EB] underline decoration-1 underline-offset-4 transition-colors hover:text-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB]">Forgot password? <ArrowUpRight /></a>
                         </div>
                         <input
                           autoComplete="current-password"
